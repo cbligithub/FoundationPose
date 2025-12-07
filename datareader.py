@@ -53,7 +53,6 @@ def get_bop_video_dirs(dataset):
   return video_dirs
 
 
-
 class YcbineoatReader:
   def __init__(self,video_dir, downscale=1, shorter_side=None, zfar=np.inf):
     self.video_dir = video_dir

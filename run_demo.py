@@ -10,6 +10,7 @@
 from estimater import *
 from datareader import *
 import argparse
+import load_custom
 
 
 if __name__=='__main__':
@@ -27,6 +28,7 @@ if __name__=='__main__':
   set_seed(0)
 
   mesh = trimesh.load(args.mesh_file)
+  mesh.apply_scale(0.001)  # from mm to meter for charger data
 
   debug = args.debug
   debug_dir = args.debug_dir
@@ -41,7 +43,8 @@ if __name__=='__main__':
   est = FoundationPose(model_pts=mesh.vertices, model_normals=mesh.vertex_normals, mesh=mesh, scorer=scorer, refiner=refiner, debug_dir=debug_dir, debug=debug, glctx=glctx)
   logging.info("estimator initialization done")
 
-  reader = YcbineoatReader(video_dir=args.test_scene_dir, shorter_side=None, zfar=np.inf)
+  # reader = YcbineoatReader(video_dir=args.test_scene_dir, shorter_side=None, zfar=np.inf)
+  reader = load_custom.CustomLoader(data_path=args.test_scene_dir)
 
   for i in range(len(reader.color_files)):
     logging.info(f'i:{i}')
@@ -62,15 +65,18 @@ if __name__=='__main__':
     else:
       pose = est.track_one(rgb=color, depth=depth, K=reader.K, iteration=args.track_refine_iter)
 
+    # print('Initial pose:\n', pose)
+
     os.makedirs(f'{debug_dir}/ob_in_cam', exist_ok=True)
     np.savetxt(f'{debug_dir}/ob_in_cam/{reader.id_strs[i]}.txt', pose.reshape(4,4))
 
     if debug>=1:
       center_pose = pose@np.linalg.inv(to_origin)
+      print('Refined pose:\n', center_pose)
       vis = draw_posed_3d_box(reader.K, img=color, ob_in_cam=center_pose, bbox=bbox)
       vis = draw_xyz_axis(color, ob_in_cam=center_pose, scale=0.1, K=reader.K, thickness=3, transparency=0, is_input_rgb=True)
-      cv2.imshow('1', vis[...,::-1])
-      cv2.waitKey(1)
+    #  cv2.imshow('1', vis[...,::-1])
+    #  cv2.waitKey(1)
 
 
     if debug>=2:
