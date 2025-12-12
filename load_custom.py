@@ -5,6 +5,8 @@ import glob
 import cv2
 import numpy as np
 
+# sshfs -o allow_other,default_permissions en453909.uoa.auckland.ac.nz:/home/bli725/workspace/ /home/bli725/workspace/
+
 class CustomLoader:
 
     def __init__(self, data_path="demo_data/charger"):
@@ -13,7 +15,8 @@ class CustomLoader:
         self.depth_files = sorted(glob.glob(os.path.join(data_path, "*_depth2rgb.png")))
         self.mask_files = sorted(glob.glob(os.path.join(data_path, "*_mask.png")))
         self.info_files = sorted(glob.glob(os.path.join(data_path, "*_rgb_camera_info.json")))
-        self.downscale = 0.5
+        #self.downscale = 0.5
+        self.downscale = 0.25
         self.id_strs = []
         for i in range(len(self.color_files)):
             name = os.path.basename(self.color_files[i]).split('.')[0]
