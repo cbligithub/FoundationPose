@@ -1,22 +1,15 @@
-# Copyright (c) 2023, NVIDIA CORPORATION.  All rights reserved.
-#
-# NVIDIA CORPORATION and its licensors retain all intellectual property
-# and proprietary rights in and to this software, related documentation
-# and any modifications thereto.  Any use, reproduction, disclosure or
-# distribution of this software and related documentation without an express
-# license agreement from NVIDIA CORPORATION is strictly prohibited.
 
-
-from estimater import *
-from datareader import *
+from estimateModel import *
 import argparse
 import load_custom
 import socket
 import struct
+import cv2
+import numpy as np
 
 
 class PoseEstimateServer:
-    def __init__(self, mesh_file="demo_data/charger/power_plug2.stl"):
+    def __init__(self, mesh_file="meshes/charger/power_plug2.stl"):
         self.mesh = trimesh.load(mesh_file)
         self.mesh.apply_scale(0.001)  # from mm to meter for charger data
         self.is_first = True
@@ -25,21 +18,31 @@ class PoseEstimateServer:
             'track_refine_iter': 2,
         }
         self.args = args
+        self.downscale = 0.25
 
         scorer = ScorePredictor()
         refiner = PoseRefinePredictor()
         glctx = dr.RasterizeCudaContext()
         self.est = FoundationPose(model_pts=self.mesh.vertices, model_normals=self.mesh.vertex_normals,
-                             mesh=self.mesh, scorer=scorer, refiner=refiner, glctx=glctx)
+                                  mesh=self.mesh, scorer=scorer, refiner=refiner, glctx=glctx)
 
     def estimate_poses(self, color, depth, mask, K):
+        H, W = color.shape[:2]
+        H_ds = int(H * self.downscale)
+        W_ds = int(W * self.downscale)
+        color = cv2.resize(color, (W_ds, H_ds), interpolation=cv2.INTER_NEAREST)
+        depth = cv2.resize(depth, (W_ds, H_ds), interpolation=cv2.INTER_NEAREST)
+        mask = cv2.resize(mask.astype(np.uint8), (W_ds, H_ds), interpolation=cv2.INTER_NEAREST).astype(bool)
+        K = K.copy()
+        K[:2] *= self.downscale
+
         if self.is_first:
             pose = self.est.register(K=K, rgb=color, depth=depth,
-                                ob_mask=mask, iteration=self.args['est_refine_iter'])
+                                     ob_mask=mask, iteration=self.args['est_refine_iter'])
             self.is_first = False
         else:
             pose = self.est.track_one(rgb=color, depth=depth,
-                                 K=K, iteration=self.args['track_refine_iter'])
+                                      K=K, iteration=self.args['track_refine_iter'])
 
         print(pose)
         return pose
